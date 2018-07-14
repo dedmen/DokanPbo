@@ -5,12 +5,12 @@ using System.Collections.Generic;
 
 namespace DokanPbo
 {
-    abstract class PboFSNode
+    public abstract class PboFSNode
     {
         public FileInformation FileInformation;
     }
 
-    class PboFSFolder : PboFSNode
+    public class PboFSFolder : PboFSNode
     {
         public Dictionary<string, PboFSNode> Children;
 
@@ -28,7 +28,7 @@ namespace DokanPbo
         }
     }
 
-    class PboFSFile : PboFSNode
+    public class PboFSFile : PboFSNode
     {
         public FileEntry File;
 
@@ -47,4 +47,15 @@ namespace DokanPbo
             };
         }
     }
+
+    public class PboFSDummyFile : PboFSFile
+    {
+        public System.IO.Stream stream = null;
+
+        public PboFSDummyFile(string name, PboArchive archive, FileEntry file) : base(name,archive,file)
+        {
+        }
+    }
+
+
 }
