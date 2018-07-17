@@ -16,7 +16,7 @@ namespace DokanPbo
         {
             this.archiveManager = archiveManager;
 
-            createFileTree();
+            CreateFileTree();
         }
 
         public IList<FileInformation> FilesForPath(string path)
@@ -52,11 +52,12 @@ namespace DokanPbo
             return null;
         }
 
-        private void createFileTree()
+        private void CreateFileTree()
         {
             this.root = new PboFSFolder(null);
             this.fileTreeLookup = new Dictionary<string, PboFSNode>();
             this.fileTreeLookup["\\"] = this.root;
+            var hasCfgConvert = PboFS.HasCfgConvert();
 
             foreach (string filePath in this.archiveManager.FilePathToFileEntry.Keys)
             {
@@ -77,6 +78,7 @@ namespace DokanPbo
                     {
                         this.fileTreeLookup[currentPath] = new PboFSFolder(folderName);
                     }
+
                     folder = (PboFSFolder) this.fileTreeLookup[currentPath];
 
                     if (!currentFolder.Children.ContainsKey(folderName))
@@ -92,7 +94,7 @@ namespace DokanPbo
                 var fileNode = new PboFSFile(fileName, file);
                 currentFolder.Children[fileName] = fileNode;
                 this.fileTreeLookup[filePath] = fileNode;
-                if (fileName == "config.bin")
+                if (hasCfgConvert && fileName == "config.bin")
                 {
                     var derapNode = new PboFSDummyFile("config.cpp", archive, file);
                     currentFolder.Children["config.cpp"] = derapNode;
