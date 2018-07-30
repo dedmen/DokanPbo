@@ -12,6 +12,107 @@ namespace DokanPbo
     public abstract class IPboFsNode
     {
         public FileInformation FileInformation;
+        public PboFsFolder parent;
+
+        public override int GetHashCode()
+        {
+
+            int hashCode = FileInformation.FileName?.ToLower().GetHashCode() ?? "".GetHashCode();
+            var element = parent;
+            while (element != null)
+            {
+                if (element.FileInformation.FileName != null && element.FileInformation.FileName != "")
+                    hashCode = hashCode * 23 + element.FileInformation.FileName.ToLower().GetHashCode();
+                element = element.parent;
+            }
+
+            return hashCode;
+        }
+
+        public override bool Equals(object obj)
+        {
+
+            if (obj is PboFsLookupDummy dummy)
+                return dummy.Equals(this);
+
+            if (obj is IPboFsNode node)
+            {
+                if (!FileInformation.FileName.Equals(node.FileInformation.FileName, StringComparison.CurrentCultureIgnoreCase)) return false;
+
+                var lparent = parent;
+                var rparent = node.parent;
+                while (lparent != null && rparent != null)
+                {
+                    if ((lparent.FileInformation.FileName == null || rparent.FileInformation.FileName == null))
+                        return rparent.FileInformation.FileName == lparent.FileInformation.FileName;
+
+                    if (!lparent.FileInformation.FileName.Equals(rparent.FileInformation.FileName, StringComparison.CurrentCultureIgnoreCase)) return false;
+                    lparent = lparent.parent;
+                    rparent = rparent.parent;
+                }
+
+                return rparent == lparent; //one of them is null. If the other isn't also null then they didn't match.
+            }
+
+            return false;
+        }
+    }
+
+    public class PboFsLookupDummy : IPboFsNode
+    {
+        private List<string> path = new List<string>();
+        private string filename = null;
+
+
+        public PboFsLookupDummy(string inputPath)
+        {
+            var splitPath = inputPath.Split('\\');
+            foreach (var it in splitPath)
+                path.Add(it);
+
+            path.RemoveAll((x) => x == "");
+            if (path.Count == 0) return;
+
+            filename = path[path.Count - 1];
+            path.Remove(path[path.Count - 1]);
+            path.Reverse();
+        }
+
+
+        public override int GetHashCode()
+        {
+            int hashCode = filename?.ToLower().GetHashCode() ?? "".GetHashCode();
+
+            foreach (var it in path)
+                hashCode = hashCode * 23 + it.GetHashCode();
+
+            return hashCode;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj is IPboFsNode node)
+            {
+
+                if (parent == null && node.parent == null) return true; //Both are root node. Done here because filename check would go horrid
+
+                if (!filename.Equals(node.FileInformation.FileName, StringComparison.CurrentCultureIgnoreCase)) return false;
+
+
+                var rparent = node.parent;
+                foreach (var it in path)
+                {
+                    if (rparent == null) return false;
+                    if (!it.Equals(rparent.FileInformation.FileName, StringComparison.CurrentCultureIgnoreCase)) return false;
+                    rparent = rparent.parent;
+                }
+
+                return rparent?.parent == null; //If it is not null. We didn't arrive at root node which we should've
+            }
+
+
+            return false;
+        }
     }
 
     public abstract class IPboFsFolder : IPboFsNode
@@ -44,7 +145,6 @@ namespace DokanPbo
 
     public class PboFsFolder : IPboFsFolder
     {
-        public PboFsFolder parent;
         public Dictionary<string, IPboFsNode> Children;
 
         public PboFsFolder(string name, PboFsFolder inputParent) : base()
@@ -66,10 +166,11 @@ namespace DokanPbo
     {
         public FileEntry File;
 
-        public PboFsFile(string name, FileEntry file) : base()
+        public PboFsFile(string name, FileEntry file, PboFsFolder inputParent) : base()
         {
             File = file;
             var fileTimestamp = new DateTime(1970, 1, 1, 0, 0, 0, 0).ToLocalTime().AddSeconds(file.TimeStamp);
+            parent = inputParent;
             FileInformation = new DokanNet.FileInformation()
             {
                 Attributes = System.IO.FileAttributes.Normal | FileAttributes.ReadOnly | FileAttributes.Temporary | FileAttributes.Archive,
@@ -108,7 +209,7 @@ namespace DokanPbo
     {
         public System.IO.Stream debinarizedStream = null;
 
-        public PboFsDebinarizedFile(string name, FileEntry file) : base(name, file)
+        public PboFsDebinarizedFile(string name, FileEntry file, PboFsFolder inputParent) : base(name, file, inputParent)
         {
         }
 
@@ -170,7 +271,6 @@ namespace DokanPbo
 
     public class PboFsRealFile : IPboFsFile, IPboFsRealObject
     {
-        public PboFsFolder parent;
         public System.IO.FileInfo file;
         private bool? wantsOpenWrite;
         private System.IO.FileStream readStream = null;
