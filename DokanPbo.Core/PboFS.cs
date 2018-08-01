@@ -434,7 +434,39 @@ namespace DokanPbo
                     nodeTargetDirectory.Children.Add(targetFilenameDirect.ToLower(), nodeSourceDirectory.Children[sourceFilenameDirect.ToLower()]);
                     nodeSourceDirectory.Children.Remove(sourceFilenameDirect.ToLower());
 
+
+                    void doNodesRecursive(PboFsFolder folderIn, bool remove)
+                    {
+                        foreach (var entry in folderIn.Children)
+                        {
+                            if (remove)
+                            {
+                                fileTree.DeleteNode(entry.Value);
+                                if (entry.Value is PboFsRealFile file)
+                                {
+                                    file.Close();
+                                }
+                            }
+                                
+                            else
+                            {
+                                fileTree.AddNode(entry.Value);
+                                if (entry.Value is PboFsRealFile file)
+                                {
+                                    file.file = new FileInfo(file.file.FullName.Replace(filename,newname));
+                                }
+
+                            }
+                                
+                            if (entry.Value is PboFsFolder nextFolder)
+                                doNodesRecursive(nextFolder, remove);
+                        }
+                    }
+
+
+
                     fileTree.DeleteNode(folder);
+                    doNodesRecursive(folder, true);
 
                     System.IO.Directory.Move(folder.path, fileTree.writeableDirectory + newname);
                     folder.path = fileTree.writeableDirectory + newname;
@@ -443,19 +475,7 @@ namespace DokanPbo
 
                     fileTree.AddNode(folder);
 
-                    void moveNodesRecursive(PboFsFolder folderIn, string basePath)
-                    {
-                        foreach (var entry in folderIn.Children)
-                        {
-                            var curFullPath = basePath + "\\" + entry.Key;
-                            fileTree.AddNode(entry.Value);
-                            fileTree.DeleteNode(curFullPath);
-                            if (entry.Value is PboFsFolder nextFolder)
-                                moveNodesRecursive(nextFolder, curFullPath);
-                        }
-                    }
-
-                    moveNodesRecursive(folder, filename);
+                    doNodesRecursive(folder, false);
 
                     return DokanResult.Success;
                 default:
